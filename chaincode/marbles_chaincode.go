@@ -345,12 +345,12 @@ func (t *SimpleChaincode) init_deliverable(stub shim.ChaincodeStubInterface, arg
     }
 
     //get the marble index
-    deliverableAsBytes, err := stub.GetState(deliverableIndexStr)
+    deliverablesAsBytes, err := stub.GetState(deliverableIndexStr)
     if err != nil {
         return nil, errors.New("Failed to get deliverable index")
     }
     var deliverableIndex []string
-    json.Unmarshal(deliverableAsBytes, &deliverableIndex)                            //un stringify it aka JSON.parse()
+    json.Unmarshal(deliverablesAsBytes, &deliverableIndex)                            //un stringify it aka JSON.parse()
 
     //append
     deliverableIndex = append(deliverableIndex, name)                                    //add marble name to index list
