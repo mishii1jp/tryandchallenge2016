@@ -188,11 +188,12 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
     } else if function == "create_deliverable" {
         res, err := t.init_deliverable(stub, args)
         return res, err
-    }
-//    else if function == "create_task" {
-//        res, err := t.create_task(stub, args)
-//        return res, err
-//    } else if function == "write_result" {
+    } else if function == "create_task" {
+        res, err := t.create_task(stub, args)
+        return res, err
+    } 
+	//TODO
+//else if function == "write_result" {
 //        res, err := t.write_result(stub, args)
 //        return res, err
 //    }
@@ -210,6 +211,8 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
     // Handle different functions
     if function == "read" {                                                    //read a variable
         return t.read(stub, args)
+    } else if function == "get_alldeliverables" {
+    	return t.get_alldeliverables(stub, args)
     }
     fmt.Println("query did not find func: " + function)                        //error
 
@@ -236,7 +239,25 @@ func (t *SimpleChaincode) read(stub shim.ChaincodeStubInterface, args []string) 
 
     return valAsbytes, nil                                                    //send it onward
 }
+// ============================================================================================================================
+// get_alldeliverables - read deliverable from chaincode state
+// ============================================================================================================================
+func(t *SimpleChainCode) get_alldeliverables(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var name, jsonResp string
+	var err error
+	
+	if len(args) != 1 {
+		return nil, errors.New("Incorrect number of arguments. Expecting name of the var to query")
+	}
+	name = args[0]
+	valAsbytes, err := stub.GetState(name)                                    //get the var from chaincode state
+    if err != nil {
+        jsonResp = "{\"Error\":\"Failed to get state for " + name + "\"}"
+        return nil, errors.New(jsonResp)
+    }
 
+    return valAsbytes, nil                                                    //send it onward
+}
 // ============================================================================================================================
 // Delete - remove a key/value pair from state
 // ============================================================================================================================
@@ -320,10 +341,6 @@ func (t *SimpleChaincode) init_deliverable(stub shim.ChaincodeStubInterface, arg
     //引数の処理
     name := args[0]
     manday := args[1]
-//    manday, err := strconv.ParseFloat(args[1], 64)
-//    if (err != nil) {
-//        return nil, errors.New("3rd argument must be a numeric string")
-//    }
     startdate := args[2]
     enddate := args[3]
     deliverableAsBytes, err := stub.GetState(name)
@@ -362,6 +379,76 @@ func (t *SimpleChaincode) init_deliverable(stub shim.ChaincodeStubInterface, arg
     return nil, nil
 
 
+}
+// ============================================================================================================================
+// create-task - task chaincode
+// ============================================================================================================================
+func (t *SimpleChaincode) create_task(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var err error
+
+    if len(args) != 6 {
+        return nil, errors.New("Incorrect number of arguments. Expecting 4")
+    }
+
+    fmt.Println("- start init Deliverable")
+    if len(args[0]) <= 0 {
+        return nil, errors.New("1st argument must be a non-empty string")
+    }
+    if len(args[1]) <= 0 {
+        return nil, errors.New("2nd argument must be a non-empty string")
+    }
+    if len(args[2]) <= 0 {
+        return nil, errors.New("3rd argument must be a non-empty string")
+    }
+    if len(args[3]) <= 0 {
+        return nil, errors.New("4th argument must be a non-empty string")
+    }
+    if len(args[4]) <= 0 {
+        return nil, errors.New("4th argument must be a non-empty string")
+    }
+    if len(args[5]) <= 0 {
+        return nil, errors.New("4th argument must be a non-empty string")
+    }
+	//parameter get
+	name := args[0]
+	manday := args[1]
+	startdate := args[2]
+	enddate := args[3]
+	user := args[4]
+	touser := args[5]
+	taskAsBytes, err := stub.GetState(name)
+    if err != nil {
+        return nil, errors.New("Failed to get task name")
+    }
+    res := Deliverable{}
+    json.Unmarshal(deliverableAsBytes, &res)
+    if res.Name == name{
+        fmt.Println("This task arleady exists: " + name)
+        fmt.Println(res);
+        return nil, errors.New("This task arleady exists")                //all stop a deliverable by this name exists
+    }
+	str := `{"name": "` + name + `", "manday": "` + manday + `", "startdate": "` + startdate + `", "enddate": "` + enddate + `", "user": "` + user + `", "touser": "` + touser `"}`
+    err = stub.PutState(name, []byte(str))                                    //store marble with id as key
+    if err != nil {
+        return nil, err
+    }
+    //get the marble index
+    tasksAsBytes, err := stub.GetState(taskIndexStr)
+    if err != nil {
+        return nil, errors.New("Failed to get task index")
+    }
+    var taskIndex []string
+    json.Unmarshal(tasksAsBytes, &deliverableIndex)                            //un stringify it aka JSON.parse()
+
+    //append
+    taskIndex = append(taskIndex, name)                                    //add marble name to index list
+    fmt.Println("! marble index: ", taskIndex)
+    jsonAsBytes, _ := json.Marshal(taskIndex)
+    err = stub.PutState(taskIndexStr, jsonAsBytes)                        //store name of marble
+
+    fmt.Println("- end create task")
+    return nil, nil
+	
 }
 // ============================================================================================================================
 // Init Marble - create a new marble, store into chaincode state
