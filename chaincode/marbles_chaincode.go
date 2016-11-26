@@ -50,14 +50,14 @@ type Marble struct{
 
 type Deliverable struct {
     Name string `json:"name"`    //成果物
-    ManDay float64 `json:"manday"`    //工数（人日）
+    ManDay string `json:"manday"`    //工数（人日）
     StartDate string `json:"startdate"`    //開始日（YYYY-MM-DD）
     EndDate string `json:"enddate"`    //終了日（YYYY-MM-DD）
 }
 
 type Task struct {
     Name string `json:"name"`    //タスク名称
-    ManDay float64 `json:"manday"`    //工数（人日）
+    ManDay string `json:"manday"`    //工数（人日）
     StartDate string `json:"startdate"`    //開始日（YYYY-MM-DD）
     EndDate string `json:"enddate"`    //終了日（YYYY-MM-DD）
     User string `json:"user"`    //振り出したユーザ
@@ -65,7 +65,8 @@ type Task struct {
 }
 
 type Result struct {
-    Manday float64 `json:"manday"`    //工数（人日）
+	Name string `json:"name"`
+    Manday string `json:"manday"`    //工数（人日）
     StartDate string `json:"startdate"`//開始日（YYYY-MM-DD）
     EndDate string `json:"enddate"`    //終了日（YYYY-MM-DD）
 }
@@ -501,7 +502,7 @@ func (t *SimpleChaincode) write_result(stub shim.ChaincodeStubInterface, args []
     if err != nil {
         return nil, errors.New("Failed to get result index")
     }
-    var marbleIndex []string
+    var resultIndex []string
     json.Unmarshal(resultsAsBytes, &resultIndex)                            //un stringify it aka JSON.parse()
 
     //append
