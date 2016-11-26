@@ -36,12 +36,38 @@ type SimpleChaincode struct {
 
 var marbleIndexStr = "_marbleindex"				//name for the key/value that will store a list of all known marbles
 var openTradesStr = "_opentrades"				//name for the key/value that will store all open trades
+var deliverableIndexStr = "_deliverableindex"
+var taskIndexStr = "_taskindex"
+var resultIndexStr = "_resultindex"
+
 
 type Marble struct{
 	Name string `json:"name"`					//the fieldtags are needed to keep case from bouncing around
 	Color string `json:"color"`
 	Size int `json:"size"`
 	User string `json:"user"`
+}
+
+type Deliverable struct {
+	Name string `json:"name"`	//成果物
+	ManDay float64 `json:"manday"`	//工数（人日）
+	StartDate string `json:"startdate"`	//開始日（YYYY-MM-DD）
+	EndDate string `json:"enddate"`	//終了日（YYYY-MM-DD）
+}
+
+type Task struct {
+	Name string `json:"name"`	//タスク名称
+	ManDay float64 `json:"manday"`	//工数（人日）
+	StartDate string `json:"startdate"`	//開始日（YYYY-MM-DD）
+	EndDate string `json:"enddate"`	//終了日（YYYY-MM-DD）
+	User string `json:"user"`	//振り出したユーザ
+	ToUser string `json:"touser"`	//タスクを振り出されたユーザ
+}
+
+type Result struct {
+	Manday float64 `json:"monday"`	//工数（人日）
+	StartDate string `json:"startdate"`//開始日（YYYY-MM-DD）
+	EndDate string `json:"enddate"`	//終了日（YYYY-MM-DD）
 }
 
 type Description struct{
@@ -107,6 +133,13 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
 		return nil, err
 	}
 	
+	var emptyDeliverables []string
+	jsonAsBytes, _ := json.Marshal(emptyDeliverables)
+	err = stub.PutState(deliverableIndexStr, jsonAsBytes)
+	if err != nil {
+		return nil, err
+	}
+	//TODO taskもresultも	
 	return nil, nil
 }
 
@@ -147,6 +180,15 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return res, err
 	} else if function == "remove_trade" {									//cancel an open trade order
 		return t.remove_trade(stub, args)
+	} else if function == "create_deliverable" {
+		res, err := t.init_deliverable(stub, args)
+		return res, err
+	} else if function == "create_task" {
+		res, err := t.create_task(stub, args)
+		return res, err
+	} else if function == "write_result" {
+		res, err := t.write_result(stub, args)
+		return res, err
 	}
 	fmt.Println("invoke did not find func: " + function)					//error
 
@@ -248,7 +290,72 @@ func (t *SimpleChaincode) Write(stub shim.ChaincodeStubInterface, args []string)
 	}
 	return nil, nil
 }
+//成果物作成
+func (t *SimpleChaincode) init_deliverable(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var err error
+	
+	if len(args) != 4 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 4")
+	}
+	
+	fmt.Println("- start init Deliverable")
+	if len(args[0]) <= 0 {
+		return nil, errors.New("1st argument must be a non-empty string")
+	}
+	if len(args[1]) <= 0 {
+		return nil, errors.New("2nd argument must be a non-empty string")
+	}
+	if len(args[2]) <= 0 {
+		return nil, errors.New("3rd argument must be a non-empty string")
+	}
+	if len(args[3]) <= 0 {
+		return nil, errors.New("4th argument must be a non-empty string")
+	}
+	//引数の処理
+	name := args[0]
+	manday, err := strconv.ParseFloat(strargs[1], 64)
+	if (err != nil) {
+		return nil, errors.New("3rd argument must be a numeric string")
+	}
+	startdate := args[2]
+	enddate := args[3]
+	deliverableAsBytes, err := stub.GetState(name)
+	if err != nil {
+		return nil, errors.New("Failed to get deliverable name")
+	}
+	res := Deliverable{}
+	json.Unmarshal(deliverableAsBytes, &res)
+	if res.Name == name{
+		fmt.Println("This deliverable arleady exists: " + name)
+		fmt.Println(res);
+		return nil, errors.New("This deliverable arleady exists")				//all stop a deliverable by this name exists
+	}
+	//build the deliverable json string manually
+	str := `{"name": "` + name + `", "manday": "` + manday + `", "startdate": ` + startdate + `, "enddate": "` + enddate + `"}`
+	err = stub.PutState(name, []byte(str))									//store marble with id as key
+	if err != nil {
+		return nil, err
+	}
+		
+	//get the marble index
+	deliverableAsBytes, err := stub.GetState(deliverableIndexStr)
+	if err != nil {
+		return nil, errors.New("Failed to get deliverable index")
+	}
+	var deliverableIndex []string
+	json.Unmarshal(deliverableAsBytes, &deliverableIndex)							//un stringify it aka JSON.parse()
+	
+	//append
+	deliverableIndex = append(deliverableIndex, name)									//add marble name to index list
+	fmt.Println("! marble index: ", deliverableIndex)
+	jsonAsBytes, _ := json.Marshal(deliverableIndex)
+	err = stub.PutState(deliverableIndexStr, jsonAsBytes)						//store name of marble
 
+	fmt.Println("- end init deliverable")
+	return nil, nil
+	
+	
+}
 // ============================================================================================================================
 // Init Marble - create a new marble, store into chaincode state
 // ============================================================================================================================
