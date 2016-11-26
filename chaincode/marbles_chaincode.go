@@ -319,10 +319,11 @@ func (t *SimpleChaincode) init_deliverable(stub shim.ChaincodeStubInterface, arg
     }
     //引数の処理
     name := args[0]
-    manday, err := strconv.ParseFloat(args[1], 64)
-    if (err != nil) {
-        return nil, errors.New("3rd argument must be a numeric string")
-    }
+    manday := args[1]
+//    manday, err := strconv.ParseFloat(args[1], 64)
+//    if (err != nil) {
+//        return nil, errors.New("3rd argument must be a numeric string")
+//    }
     startdate := args[2]
     enddate := args[3]
     deliverableAsBytes, err := stub.GetState(name)
