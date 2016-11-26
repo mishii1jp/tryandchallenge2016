@@ -130,7 +130,17 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
     if err != nil {
     return nil, err
     }
-
+    
+    err = stub.PutState(taskIndexStr, jsonAsBytes)
+    if err != nil {
+    	return nil, err
+    }
+    
+    err = stub.PutState(resultIndexStr, jsonAsBytes)
+	if err != nil {
+    	return nil, err
+    }
+    
     var trades AllTrades
     jsonAsBytes, _ = json.Marshal(trades)                                //clear the open trade struct
     err = stub.PutState(openTradesStr, jsonAsBytes)
@@ -138,13 +148,6 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
         return nil, err
     }
 
-//    var emptyDeliverables []string
-//    jsonAsBytes, _ := json.Marshal(emptyDeliverables)
-//    err = stub.PutState(deliverableIndexStr, jsonAsBytes)
-//    if err != nil {
-//        return nil, err
-//    }
-    //TODO taskもresultも
     return nil, nil
 }
 
@@ -191,12 +194,10 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
     } else if function == "create_task" {
         res, err := t.create_task(stub, args)
         return res, err
-    } 
-	//TODO
-//else if function == "write_result" {
-//        res, err := t.write_result(stub, args)
-//        return res, err
-//    }
+    } else if function == "write_result" {
+        res, err := t.write_result(stub, args)
+        return res, err
+    }
     fmt.Println("invoke did not find func: " + function)                    //error
 
     return nil, errors.New("Received unknown function invocation")
@@ -448,6 +449,70 @@ func (t *SimpleChaincode) create_task(stub shim.ChaincodeStubInterface, args []s
 
     fmt.Println("- end create task")
     return nil, nil
+	
+}
+//TODO
+func (t *SimpleChaincode) write_result(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var err error
+
+    if len(args) != 4 {
+        return nil, errors.New("Incorrect number of arguments. Expecting 4")
+    }
+
+    fmt.Println("- start init result")
+    if len(args[0]) <= 0 {
+        return nil, errors.New("1st argument must be a non-empty string")
+    }
+    if len(args[1]) <= 0 {
+        return nil, errors.New("2nd argument must be a non-empty string")
+    }
+    if len(args[2]) <= 0 {
+        return nil, errors.New("3rd argument must be a non-empty string")
+    }
+    if len(args[3]) <= 0 {
+        return nil, errors.New("3rd argument must be a non-empty string")
+    }
+
+	name := args[0]
+	manday := args[1]
+	startdate := args[2]
+	enddate := args[3]
+	
+	resultAsBytes , err := stub.GetState(name)
+    if err != nil {
+        return nil, errors.New("Failed to get result name")
+    }
+	res := Result{}
+    json.Unmarshal(resultAsBytes, &res)
+    if res.Name == name{
+        fmt.Println("This result arleady exists: " + name)
+        fmt.Println(res);
+        return nil, errors.New("This result arleady exists")                //all stop a marble by this name exists
+    }
+    //build the marble json string manually
+    str := `{"name": "` + name + `", "manday": "` + manday + `", "startdate": ` + startdate + `, "enddate": "` + enddate + `"}`
+    err = stub.PutState(name, []byte(str))                                    //store marble with id as key
+    if err != nil {
+        return nil, err
+    }
+
+    //get the marble index
+    resultsAsBytes, err := stub.GetState(resultIndexStr)
+    if err != nil {
+        return nil, errors.New("Failed to get result index")
+    }
+    var marbleIndex []string
+    json.Unmarshal(resultsAsBytes, &resultIndex)                            //un stringify it aka JSON.parse()
+
+    //append
+    resultIndex = append(resultIndex, name)                                    //add marble name to index list
+    fmt.Println("! marble index: ", resultIndex)
+    jsonAsBytes, _ := json.Marshal(resultIndex)
+    err = stub.PutState(resultIndexStr, jsonAsBytes)                        //store name of marble
+
+    fmt.Println("- end init result")
+    return nil, nil
+    
 	
 }
 // ============================================================================================================================
